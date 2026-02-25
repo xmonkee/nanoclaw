@@ -465,13 +465,15 @@ async function main(): Promise<void> {
     await whatsapp.connect();
   }
 
-  const gmail = new GmailChannel(channelOpts);
-  channels.push(gmail);
-  try {
-    await gmail.connect();
-  } catch (err) {
-    logger.warn({ err }, 'Gmail channel failed to connect, continuing without it');
-  }
+  // Gmail channel polling disabled — Gmail is available as a tool via MCP.
+  // To re-enable realtime delivery, uncomment the block below.
+  // const gmail = new GmailChannel(channelOpts);
+  // channels.push(gmail);
+  // try {
+  //   await gmail.connect();
+  // } catch (err) {
+  //   logger.warn({ err }, 'Gmail channel failed to connect, continuing without it');
+  // }
 
   // Start subsystems (independently of connection handler)
   startSchedulerLoop({
