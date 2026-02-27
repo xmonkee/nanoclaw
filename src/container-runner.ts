@@ -142,7 +142,10 @@ function buildVolumeMounts(
   });
 
   // Gmail credentials directory (for Gmail MCP inside the container)
-  const gmailDir = path.join(homeDir, '.gmail-mcp');
+  // Per-group credentials take priority over the global ~/.gmail-mcp fallback
+  const groupGmailDir = path.join(GROUPS_DIR, group.folder, '.gmail-mcp');
+  const globalGmailDir = path.join(homeDir, '.gmail-mcp');
+  const gmailDir = fs.existsSync(groupGmailDir) ? groupGmailDir : globalGmailDir;
   if (fs.existsSync(gmailDir)) {
     mounts.push({
       hostPath: gmailDir,
