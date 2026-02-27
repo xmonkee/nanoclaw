@@ -102,13 +102,24 @@ All tests must pass (including the new gmail tests) and build must be clean befo
 
 ## Phase 3: Setup
 
+### Which group to configure
+
+Use `AskUserQuestion`: Which group should this Gmail account be configured for?
+
+- **Main (your account)** — credentials go in `~/.gmail-mcp/`, available to all groups without their own credentials
+- **A specific group** — credentials go in `groups/{name}/.gmail-mcp/`, only that group uses this account
+
+If specific group, ask for the group folder name (e.g. "ashita"). Set `GMAIL_DIR` accordingly:
+- Main: `GMAIL_DIR="$HOME/.gmail-mcp"`
+- Specific group: `GMAIL_DIR="$(pwd)/groups/{name}/.gmail-mcp"`
+
 ### Check existing Gmail credentials
 
 ```bash
-ls -la ~/.gmail-mcp/ 2>/dev/null || echo "No Gmail config found"
+ls -la "$GMAIL_DIR/" 2>/dev/null || echo "No Gmail config found"
 ```
 
-If `credentials.json` already exists, skip to "Build and restart" below.
+If `credentials.json` already exists in that directory, skip to "Build and restart" below.
 
 ### GCP Project Setup
 
@@ -128,11 +139,11 @@ Tell the user:
 If user provides a path, copy it:
 
 ```bash
-mkdir -p ~/.gmail-mcp
-cp "/path/user/provided/gcp-oauth.keys.json" ~/.gmail-mcp/gcp-oauth.keys.json
+mkdir -p "$GMAIL_DIR"
+cp "/path/user/provided/gcp-oauth.keys.json" "$GMAIL_DIR/gcp-oauth.keys.json"
 ```
 
-If user pastes JSON content, write it to `~/.gmail-mcp/gcp-oauth.keys.json`.
+If user pastes JSON content, write it to `$GMAIL_DIR/gcp-oauth.keys.json`.
 
 ### OAuth Authorization
 
@@ -140,13 +151,22 @@ Tell the user:
 
 > I'm going to run Gmail authorization. A browser window will open — sign in and grant access. If you see an "app isn't verified" warning, click "Advanced" then "Go to [app name] (unsafe)" — this is normal for personal OAuth apps.
 
-Run the authorization:
+The auth tool always writes to `~/.gmail-mcp/`. For per-group credentials, use a temp HOME with a symlink so the output lands in the right directory:
 
+**Main group:**
 ```bash
 npx -y @gongrzhe/server-gmail-autoauth-mcp auth
 ```
 
-If that fails (some versions don't have an auth subcommand), try `timeout 60 npx -y @gongrzhe/server-gmail-autoauth-mcp || true`. Verify with `ls ~/.gmail-mcp/credentials.json`.
+**Specific group:**
+```bash
+_tmpdir=$(mktemp -d)
+ln -s "$GMAIL_DIR" "$_tmpdir/.gmail-mcp"
+HOME="$_tmpdir" npx -y @gongrzhe/server-gmail-autoauth-mcp auth
+rm -rf "$_tmpdir"
+```
+
+If auth fails (some versions don't have an auth subcommand), try `timeout 60 npx -y @gongrzhe/server-gmail-autoauth-mcp || true` with the same HOME trick. Verify with `ls "$GMAIL_DIR/credentials.json"`.
 
 ### Build and restart
 
@@ -204,17 +224,22 @@ npx -y @gongrzhe/server-gmail-autoauth-mcp
 
 ### OAuth token expired
 
-Re-authorize:
+Re-authorize (replace `$GMAIL_DIR` with the appropriate path):
 
 ```bash
-rm ~/.gmail-mcp/credentials.json
-npx -y @gongrzhe/server-gmail-autoauth-mcp
+rm "$GMAIL_DIR/credentials.json"
+# Main group:
+npx -y @gongrzhe/server-gmail-autoauth-mcp auth
+# Specific group:
+_tmpdir=$(mktemp -d) && ln -s "$GMAIL_DIR" "$_tmpdir/.gmail-mcp" && HOME="$_tmpdir" npx -y @gongrzhe/server-gmail-autoauth-mcp auth && rm -rf "$_tmpdir"
 ```
 
 ### Container can't access Gmail
 
-- Verify `~/.gmail-mcp` is mounted: check `src/container-runner.ts` for the `.gmail-mcp` mount
-- Check container logs: `cat groups/main/logs/container-*.log | tail -50`
+- Per-group credentials: check `groups/{name}/.gmail-mcp/credentials.json` exists
+- Global fallback: check `~/.gmail-mcp/credentials.json` exists
+- Verify mount logic in `src/container-runner.ts` — group-specific dir takes priority over global
+- Check container logs: `cat groups/{name}/logs/container-*.log | tail -50`
 
 ### Emails not being detected (Channel mode only)
 
