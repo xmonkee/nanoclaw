@@ -318,17 +318,21 @@ export async function processTaskIpc(
 
     case 'cancel_task':
       if (data.taskId) {
-        const task = getTaskById(data.taskId);
+        // Normalize: agent sometimes strips the 'task-' prefix
+        const cancelId = data.taskId.startsWith('task-')
+          ? data.taskId
+          : `task-${data.taskId}`;
+        const task = getTaskById(cancelId);
         if (task && (isMain || task.group_folder === sourceGroup)) {
-          deleteTask(data.taskId);
+          deleteTask(cancelId);
           logger.info(
-            { taskId: data.taskId, sourceGroup },
+            { taskId: cancelId, sourceGroup },
             'Task cancelled via IPC',
           );
         } else {
           logger.warn(
-            { taskId: data.taskId, sourceGroup },
-            'Unauthorized task cancel attempt',
+            { taskId: cancelId, rawTaskId: data.taskId, sourceGroup },
+            task ? 'Unauthorized task cancel attempt' : 'Task not found for cancel',
           );
         }
       }

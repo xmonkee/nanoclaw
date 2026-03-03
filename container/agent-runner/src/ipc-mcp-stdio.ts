@@ -228,7 +228,7 @@ server.tool(
 server.tool(
   'cancel_task',
   'Cancel and delete a scheduled task.',
-  { task_id: z.string().describe('The task ID to cancel') },
+  { task_id: z.string().describe('The full task ID to cancel, exactly as shown in current_tasks.json (e.g. "task-1234567890-abc123" — include the "task-" prefix)') },
   async (args) => {
     const data = {
       type: 'cancel_task',
